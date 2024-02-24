@@ -11,6 +11,7 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0x03, (c) => { c.BC++ }],
   [0x05, (c) => { dec(c, B) }],
   [0x06, (c) => { c.B = readArgByte(c) }],
+  [0x08, (c) => { c.mmu.write(readArgWord(c), c.SP) }],
   [0x0B, (c) => { c.BC-- }],
   [0x0C, (c) => { inc(c, C) }],
   [0x0D, (c) => { dec(c, C) }],
@@ -144,6 +145,7 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0xFE, (c) => { cp(c, readArgByte(c)) }],
   [0xF3, disableIme],
   [0xF5, (c) => { pushWord(c, c.AF) }],
+  [0xF9, (c) => { c.SP = c.HL }],
   [0xFA, (c) => { c.A = c.mmu.read(readArgWord(c)) }]
 ])
 

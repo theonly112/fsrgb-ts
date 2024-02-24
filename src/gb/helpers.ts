@@ -7,3 +7,7 @@ export function int8 (v: number): number {
   const ref = v & 0xff
   return (ref > 0x7F) ? ref - 0x100 : ref
 }
+
+export function testBit (v: number, bit: number): boolean {
+  return (v & (1 << bit)) !== 0
+}
