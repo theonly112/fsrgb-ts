@@ -20,10 +20,12 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0x12, (c) => { c.mmu.write(c.DE, c.A) }],
   [0x13, (c) => { c.DE++ }],
   [0x14, (c) => { inc(c, D) }],
+  [0x16, (c) => { c.D = readArgByte(c) }],
   [0x18, (c) => { jr_n(c) }],
   [0x1a, (c) => { c.A = c.mmu.read(c.DE) }],
   [0x1C, (c) => { inc(c, E) }],
   [0x1D, (c) => { dec(c, E) }],
+  [0x1E, (c) => { c.E = readArgByte(c) }],
   [0x1F, rra],
   [0x20, jr_nz_n],
   [0x21, (c) => { c.HL = readArgWord(c) }],
@@ -148,6 +150,7 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0xD9, reti],
   [0xDA, jp_c_nn],
   [0xDC, call_c_nn],
+  [0xDE, (c) => { sbc(c, readArgByte(c)) }],
   [0xDF, (c) => { rst(c, 0x0018) }],
   [0xe0, (c) => { c.mmu.write(0xFF00 + readArgByte(c), c.A) }],
   [0xe1, (c) => { c.HL = popWord(c) }],
@@ -165,6 +168,7 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0xFE, (c) => { cp(c, readArgByte(c)) }],
   [0xF3, disableIme],
   [0xF5, (c) => { pushWord(c, c.AF) }],
+  [0xF6, (c) => { or(c, readArgByte(c)) }],
   [0xF7, (c) => { rst(c, 0x0030) }],
   [0xF8, ld_hl_sp_n],
   [0xF9, (c) => { c.SP = c.HL }],
@@ -388,6 +392,16 @@ function sub (c: InstructionContext, rhs: number): void {
   halfCarryFlag(c, (rhs & 0x0f) > (lhs & 0x0f))
   c.A = (result & 0xff)
   zeroFlag(c, c.A)
+}
+
+function sbc (c: InstructionContext, value: number): void {
+  const carry = c.regs.check(CpuFlags.Carry) ? 1 : 0
+  const result = c.A - value - carry
+  zeroFlag(c, result & 0xff)
+  c.regs.set_flag(CpuFlags.Negative)
+  halfCarryFlag(c, (c.A & 0x0f) < ((value & 0x0f) + carry))
+  carryFlag(c, (result >> 8) !== 0)
+  c.A = result & 0xff
 }
 
 function extendedInstruction (c: InstructionContext): void {
