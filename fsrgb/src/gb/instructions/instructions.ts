@@ -1,7 +1,7 @@
 import { ExtendedInstructions } from './extended_instructions'
 import { type InstructionContext } from './instruction_context'
 import { ExtendedInstructionTicks } from './instruction_ticks'
-import { A, B, C, CpuFlags, D, E, H, HL, L, PC, SP } from '../registers'
+import { A, B, BC, C, CpuFlags, D, DE, E, H, HL, L, PC, SP } from '../registers'
 import { carryFlag, halfCarryFlag, zeroFlag, zeroFlagBool } from './flags'
 import { int8 } from '../helpers'
 
@@ -12,6 +12,7 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0x05, (c) => { dec(c, B) }],
   [0x06, (c) => { c.B = readArgByte(c) }],
   [0x08, (c) => { c.mmu.write_word(readArgWord(c), c.SP) }],
+  [0x09, (c) => { addHLR16(c, BC) }],
   [0x0B, (c) => { c.BC-- }],
   [0x0C, (c) => { inc(c, C) }],
   [0x0D, (c) => { dec(c, C) }],
@@ -22,7 +23,9 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0x14, (c) => { inc(c, D) }],
   [0x16, (c) => { c.D = readArgByte(c) }],
   [0x18, (c) => { jr_n(c) }],
+  [0x19, (c) => { addHLR16(c, DE) }],
   [0x1a, (c) => { c.A = c.mmu.read(c.DE) }],
+  [0x1B, (c) => { c.DE-- }],
   [0x1C, (c) => { inc(c, E) }],
   [0x1D, (c) => { dec(c, E) }],
   [0x1E, (c) => { c.E = readArgByte(c) }],
@@ -37,6 +40,7 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0x28, jr_z_n],
   [0x29, (c) => { addHLR16(c, HL) }],
   [0x2a, (c) => { c.A = c.mmu.read(c.HL++) }],
+  [0x2B, (c) => { c.HL-- }],
   [0x2c, (c) => { inc(c, L) }],
   [0x2D, (c) => { dec(c, L) }],
   [0x2E, (c) => { c.L = readArgByte(c) }],
