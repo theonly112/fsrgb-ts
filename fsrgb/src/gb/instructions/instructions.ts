@@ -1,7 +1,7 @@
 import { ExtendedInstructions } from './extended_instructions'
 import { type InstructionContext } from './instruction_context'
 import { ExtendedInstructionTicks } from './instruction_ticks'
-import { A, B, C, CpuFlags, D, E, H, HL, L, PC } from '../registers'
+import { A, B, C, CpuFlags, D, E, H, HL, L, PC, SP } from '../registers'
 import { carryFlag, halfCarryFlag, zeroFlag, zeroFlagBool } from './flags'
 import { int8 } from '../helpers'
 
@@ -41,9 +41,12 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0x30, jr_nc_n],
   [0x31, (c) => { c.SP = readArgWord(c) }],
   [0x32, (c) => { ldd(c, HL, A) }],
+  [0x33, (c) => { c.SP++ }],
   [0x35, (c) => { decHL(c, c.HL) }],
   [0x36, (c) => { c.mmu.write(c.HL, readArgByte(c)) }],
   [0x38, jr_c_n],
+  [0x39, (c) => { addHLR16(c, SP) }],
+  [0x3B, (c) => { c.SP-- }],
   [0x3C, (c) => { inc(c, A) }],
   [0x3D, (c) => { dec(c, A) }],
   [0x3E, (c) => { c.A = readArgByte(c) }],
@@ -152,6 +155,7 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0xe5, (c) => { pushWord(c, c.HL) }],
   [0xe6, (c) => { and(c, readArgByte(c)) }],
   [0xe7, (c) => { rst(c, 0x0020) }],
+  [0xe8, add_sp_n],
   [0xe9, (c) => { c.PC = c.HL }],
   [0xea, (c) => { c.mmu.write(readArgWord(c), c.A) }],
   [0xee, (c) => { xor(c, readArgByte(c)) }],
@@ -162,6 +166,7 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0xF3, disableIme],
   [0xF5, (c) => { pushWord(c, c.AF) }],
   [0xF7, (c) => { rst(c, 0x0030) }],
+  [0xF8, ld_hl_sp_n],
   [0xF9, (c) => { c.SP = c.HL }],
   [0xFA, (c) => { c.A = c.mmu.read(readArgWord(c)) }],
   [0xFF, (c) => { rst(c, 0x0038) }]
@@ -519,4 +524,24 @@ function addHLR16 (c: InstructionContext, reg: string): void {
 function rst (c: InstructionContext, addr: number): void {
   pushWord(c, c.PC)
   c.PC = addr
+}
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+function add_sp_n (c: InstructionContext): void {
+  const n = readArgByte(c)
+  const result = c.SP + int8(n)
+  carryFlag(c, ((c.SP & 0xff) + n) >> 8 !== 0)
+  halfCarryFlag(c, (c.SP & 0x0f) + (n & 0x0f) > 0x0f)
+  c.SP = result & 0xffff
+  c.regs.clear_flag(CpuFlags.Zero | CpuFlags.Negative)
+}
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+function ld_hl_sp_n (c: InstructionContext): void {
+  const n = readArgByte(c)
+  const result = c.SP + int8(n)
+  carryFlag(c, ((c.SP & 0xff) + n) >> 8 !== 0)
+  halfCarryFlag(c, (c.SP & 0x0f) + (n & 0x0f) > 0x0f)
+  c.regs.clear_flag(CpuFlags.Zero | CpuFlags.Negative)
+  c.HL = result & 0xffff
 }
