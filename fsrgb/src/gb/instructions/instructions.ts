@@ -11,7 +11,7 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0x03, (c) => { c.BC++ }],
   [0x05, (c) => { dec(c, B) }],
   [0x06, (c) => { c.B = readArgByte(c) }],
-  [0x08, (c) => { c.mmu.write(readArgWord(c), c.SP) }],
+  [0x08, (c) => { c.mmu.write_word(readArgWord(c), c.SP) }],
   [0x0B, (c) => { c.BC-- }],
   [0x0C, (c) => { inc(c, C) }],
   [0x0D, (c) => { dec(c, C) }],
@@ -43,6 +43,7 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0x32, (c) => { ldd(c, HL, A) }],
   [0x35, (c) => { decHL(c, c.HL) }],
   [0x36, (c) => { c.mmu.write(c.HL, readArgByte(c)) }],
+  [0x38, jr_c_n],
   [0x3C, (c) => { inc(c, A) }],
   [0x3D, (c) => { dec(c, A) }],
   [0x3E, (c) => { c.A = readArgByte(c) }],
@@ -117,36 +118,53 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0xB1, (c) => { or(c, c.C) }],
   [0xB6, (c) => { or(c, c.mmu.read(c.HL)) }],
   [0xB7, (c) => { or(c, c.A) }],
+  [0xC0, ret_nz],
   [0xC1, (c) => { c.BC = popWord(c) }],
+  [0xC2, jp_nz_nn],
   [0xC3, (c) => { c.PC = readArgWord(c) }],
-  [0xC4, (c) => { callNZNN(c) }],
+  [0xC4, (c) => { call_nz_nn(c) }],
   [0xC5, (c) => { pushWord(c, c.BC) }],
   [0xC6, (c) => { addA(c, readArgByte(c)) }],
+  [0xC7, (c) => { rst(c, 0x0000) }],
   [0xC8, ret_z],
   [0xC9, (c) => { c.PC = popWord(c) }],
+  [0xCA, jp_z_nn],
   [0xCB, (c) => { extendedInstruction(c) }],
+  [0xCC, call_z_nn],
   [0xCD, (c) => { callNN(c) }],
   [0xCE, (c) => { adc(c, readArgByte(c)) }],
+  [0xCF, (c) => { rst(c, 0x0008) }],
   [0xD0, ret_nc],
   [0xD1, (c) => { c.DE = popWord(c) }],
+  [0xD2, jp_nc_nn],
+  [0xD4, call_nc_nn],
   [0xD5, (c) => { pushWord(c, c.DE) }],
   [0xD6, (c) => { sub(c, readArgByte(c)) }],
+  [0xD7, (c) => { rst(c, 0x0010) }],
   [0xD8, ret_c],
+  [0xD9, reti],
+  [0xDA, jp_c_nn],
+  [0xDC, call_c_nn],
+  [0xDF, (c) => { rst(c, 0x0018) }],
   [0xe0, (c) => { c.mmu.write(0xFF00 + readArgByte(c), c.A) }],
   [0xe1, (c) => { c.HL = popWord(c) }],
   [0xe2, (c) => { c.mmu.write(0xFF00 + c.C, c.A) }],
   [0xe5, (c) => { pushWord(c, c.HL) }],
   [0xe6, (c) => { and(c, readArgByte(c)) }],
+  [0xe7, (c) => { rst(c, 0x0020) }],
   [0xe9, (c) => { c.PC = c.HL }],
   [0xea, (c) => { c.mmu.write(readArgWord(c), c.A) }],
   [0xee, (c) => { xor(c, readArgByte(c)) }],
+  [0xef, (c) => { rst(c, 0x0028) }],
   [0xF0, (c) => { c.regs.set(A, c.mmu.read(0xFF00 + readArgByte(c))) }],
   [0xF1, (c) => { c.AF = popWord(c); c.F &= 0xF0 }],
   [0xFE, (c) => { cp(c, readArgByte(c)) }],
   [0xF3, disableIme],
   [0xF5, (c) => { pushWord(c, c.AF) }],
+  [0xF7, (c) => { rst(c, 0x0030) }],
   [0xF9, (c) => { c.SP = c.HL }],
-  [0xFA, (c) => { c.A = c.mmu.read(readArgWord(c)) }]
+  [0xFA, (c) => { c.A = c.mmu.read(readArgWord(c)) }],
+  [0xFF, (c) => { rst(c, 0x0038) }]
 ])
 
 function readArgByte (c: InstructionContext): number {
@@ -251,6 +269,17 @@ function jr_nc_n (c: InstructionContext): void {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
+function jr_c_n (c: InstructionContext): void {
+  const a = int8(readArgByte(c))
+  if (!c.regs.check(CpuFlags.Carry)) {
+    c.cycles += 8
+  } else {
+    c.regs.set(PC, c.regs.get(PC) + a)
+    c.cycles += 12
+  }
+}
+
 function disableIme (context: InstructionContext): void {
   context.ime = false
 }
@@ -265,7 +294,44 @@ function cp (c: InstructionContext, v: number): void {
   c.regs.set_flag(CpuFlags.Negative)
 }
 
-function callNZNN (c: InstructionContext): void {
+// eslint-disable-next-line @typescript-eslint/naming-convention
+function call_z_nn (c: InstructionContext): void {
+  const addr = readArgWord(c)
+  if (c.regs.check(CpuFlags.Zero)) {
+    pushWord(c, c.PC)
+    c.PC = addr
+    c.cycles += 24
+  } else {
+    c.cycles += 12
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+function call_nc_nn (c: InstructionContext): void {
+  const addr = readArgWord(c)
+  if (!c.regs.check(CpuFlags.Carry)) {
+    pushWord(c, c.PC)
+    c.PC = addr
+    c.cycles += 24
+  } else {
+    c.cycles += 12
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+function call_c_nn (c: InstructionContext): void {
+  const addr = readArgWord(c)
+  if (c.regs.check(CpuFlags.Carry)) {
+    pushWord(c, c.PC)
+    c.PC = addr
+    c.cycles += 24
+  } else {
+    c.cycles += 12
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+function call_nz_nn (c: InstructionContext): void {
   const addr = readArgWord(c)
   if (!c.regs.check(CpuFlags.Zero)) {
     pushWord(c, c.PC)
@@ -372,6 +438,21 @@ function ret_c (c: InstructionContext): void {
   }
 }
 
+function reti (c: InstructionContext): void {
+  c.ime = true
+  c.PC = popWord(c)
+}
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+function ret_nz (c: InstructionContext): void {
+  if (!c.regs.check(CpuFlags.Zero)) {
+    c.PC = popWord(c)
+    c.cycles += 20
+  } else {
+    c.cycles += 8
+  }
+}
+
 // eslint-disable-next-line @typescript-eslint/naming-convention
 function ret_z (c: InstructionContext): void {
   if (c.regs.check(CpuFlags.Zero)) {
@@ -382,6 +463,50 @@ function ret_z (c: InstructionContext): void {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
+function jp_nz_nn (c: InstructionContext): void {
+  const nn = readArgWord(c)
+  if (c.regs.check(CpuFlags.Zero)) {
+    c.cycles += 12
+  } else {
+    c.PC = nn
+    c.cycles += 16
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+function jp_nc_nn (c: InstructionContext): void {
+  const nn = readArgWord(c)
+  if (c.regs.check(CpuFlags.Carry)) {
+    c.cycles += 12
+  } else {
+    c.PC = nn
+    c.cycles += 16
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+function jp_c_nn (c: InstructionContext): void {
+  const nn = readArgWord(c)
+  if (!c.regs.check(CpuFlags.Carry)) {
+    c.cycles += 12
+  } else {
+    c.PC = nn
+    c.cycles += 16
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+function jp_z_nn (c: InstructionContext): void {
+  const nn = readArgWord(c)
+  if (!c.regs.check(CpuFlags.Zero)) {
+    c.cycles += 12
+  } else {
+    c.PC = nn
+    c.cycles += 16
+  }
+}
+
 function addHLR16 (c: InstructionContext, reg: string): void {
   const value = c.regs.get(reg)
   const result = c.HL + value
@@ -389,4 +514,9 @@ function addHLR16 (c: InstructionContext, reg: string): void {
   halfCarryFlag(c, (c.HL & 0xfff) + (value & 0xfff) > 0xfff)
   c.HL = (result & 0xffff)
   c.regs.clear_flag(CpuFlags.Negative)
+}
+
+function rst (c: InstructionContext, addr: number): void {
+  pushWord(c, c.PC)
+  c.PC = addr
 }
