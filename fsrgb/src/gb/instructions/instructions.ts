@@ -123,6 +123,7 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0x73, (c) => { c.mmu.write(c.HL, c.E) }],
   [0x74, (c) => { c.mmu.write(c.HL, c.H) }],
   [0x75, (c) => { c.mmu.write(c.HL, c.L) }],
+  [0x76, halt],
   [0x77, (c) => { c.mmu.write(c.HL, c.A) }],
   [0x78, (c) => { c.A = c.B }],
   [0x79, (c) => { c.A = c.C }],
@@ -246,6 +247,7 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0xF8, ld_hl_sp_n],
   [0xF9, (c) => { c.SP = c.HL }],
   [0xFA, (c) => { c.A = c.mmu.read(readArgWord(c)) }],
+  [0xFB, (c) => { c.ime = true }],
   [0xFF, (c) => { rst(c, 0x0038) }]
 ])
 
@@ -720,4 +722,15 @@ function rrca (c: InstructionContext): void {
   }
 
   c.regs.clear_flag(CpuFlags.Negative | CpuFlags.Zero | CpuFlags.HalfCarry)
+}
+
+function halt (c: InstructionContext): void {
+  if (!c.ime) {
+    const IM = c.mmu.read(0xFFFF)
+    const IF = c.mmu.read(0xFF0F)
+    if ((IM & IF & 0x1F) === 0) {
+      c.halted = true
+      c.PC--
+    }
+  }
 }

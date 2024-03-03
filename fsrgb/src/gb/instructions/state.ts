@@ -3,6 +3,7 @@ import { type Mmu } from '../mmu'
 import { AF, A, F, BC, B, C, DE, D, E, HL, H, L, SP, PC, type Registers } from '../registers'
 
 export class State implements InstructionContext {
+  public halted: boolean = false
   constructor (public ime: boolean,
     public regs: Registers,
     public mmu: Mmu,

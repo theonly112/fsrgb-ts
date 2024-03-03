@@ -2,6 +2,7 @@ import { type Mmu } from '../mmu'
 import { type Registers } from '../registers'
 
 export interface InstructionContext {
+  halted: boolean
   ime: boolean
   regs: Registers
   mmu: Mmu

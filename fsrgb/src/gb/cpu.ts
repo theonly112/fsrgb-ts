@@ -47,4 +47,29 @@ export class Cpu {
     }
     return this.state.cycles - cycles
   }
+
+  handleInterrupts (): void {
+    const IE = this.mmu.read(0xFFFF)
+    const IF = this.mmu.read(0xFF0F)
+    for (let index = 0; index < 5; index++) {
+      if ((((IE & IF) >> index) & 0x01) === 1) {
+        this.executeInterrupt(index)
+      }
+    }
+  }
+
+  executeInterrupt (i: number): void {
+    this.state.halted = false
+    if (this.state.ime) {
+      // push word
+      this.state.SP -= 2
+      this.mmu.write_word(this.state.SP, this.state.PC)
+
+      this.state.PC = 0x40 + (8 * i)
+      this.state.ime = false
+      let flag = this.mmu.read(0xFF0F)
+      flag &= ~(i << 1)
+      this.mmu.write(0xFF0F, flag)
+    }
+  }
 }

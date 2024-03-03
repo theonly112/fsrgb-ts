@@ -6,13 +6,14 @@ import { MemoryManagementUnit } from './gb/mmu'
 import { FileLogger } from './gb/logger'
 import { PixelProcessingUnit } from './gb/ppu'
 import { PngDisplay } from './gb/display/png_display'
+import { Timer } from './gb/timer'
 
 const logger = new FileLogger()
-const buff: Uint8Array = readFileSync('test-cartridges/cpu_instrs/individual/11-op a,(hl).gb')
+const buff: Uint8Array = readFileSync('test-cartridges/cpu_instrs/individual/02-interrupts.gb')
 const cart = new PlainCartridge(buff)
 const registers = new Registers()
 const mmu = new MemoryManagementUnit(cart)
-
+const timer = new Timer(mmu)
 const display = new PngDisplay()
 
 const ppu = new PixelProcessingUnit(mmu, display, logger)
@@ -25,7 +26,9 @@ try {
     //   console.log('break')
     // }
     const cycles = c.step()
+    timer.step(cycles)
     ppu.step(cycles)
+    c.handleInterrupts()
 
     if (mmu.read(registers.get('PC')) === 0x18 &&
       mmu.read((registers.get('PC') + 1)) === 0xFE) {
