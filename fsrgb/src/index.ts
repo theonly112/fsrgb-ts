@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { PlainCartridge } from './gb/cartridge'
 import { Cpu } from './gb/cpu'
-import { C, Registers } from './gb/registers'
+import { Registers } from './gb/registers'
 import { MemoryManagementUnit } from './gb/mmu'
 import { FileLogger } from './gb/logger'
 import { PixelProcessingUnit } from './gb/ppu'
@@ -9,7 +9,7 @@ import { PngDisplay } from './gb/display/png_display'
 import { Timer } from './gb/timer'
 
 const logger = new FileLogger()
-const buff: Uint8Array = readFileSync('test-cartridges/cpu_instrs/individual/02-interrupts.gb')
+const buff: Uint8Array = readFileSync('test-cartridges/cpu_instrs/individual/10-bit ops.gb')
 const cart = new PlainCartridge(buff)
 const registers = new Registers()
 const mmu = new MemoryManagementUnit(cart)
