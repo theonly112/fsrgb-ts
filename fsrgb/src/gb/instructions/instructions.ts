@@ -239,7 +239,7 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0xef, (c) => { rst(c, 0x0028) }],
   [0xF0, (c) => { c.regs.set(A, c.mmu.read(0xFF00 + readArgByte(c))) }],
   [0xF1, (c) => { c.AF = popWord(c); c.F &= 0xF0 }],
-  [0xFE, (c) => { cp(c, readArgByte(c)) }],
+  [0XF2, (c) => { c.A = c.mmu.read(0xFF00 + c.C) }],
   [0xF3, disableIme],
   [0xF5, (c) => { pushWord(c, c.AF) }],
   [0xF6, (c) => { or(c, readArgByte(c)) }],
@@ -248,6 +248,7 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0xF9, (c) => { c.SP = c.HL }],
   [0xFA, (c) => { c.A = c.mmu.read(readArgWord(c)) }],
   [0xFB, (c) => { c.ime = true }],
+  [0xFE, (c) => { cp(c, readArgByte(c)) }],
   [0xFF, (c) => { rst(c, 0x0038) }]
 ])
 
