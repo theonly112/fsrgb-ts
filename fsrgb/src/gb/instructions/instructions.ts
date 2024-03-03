@@ -3,11 +3,12 @@ import { type InstructionContext } from './instruction_context'
 import { ExtendedInstructionTicks } from './instruction_ticks'
 import { A, B, BC, C, CpuFlags, D, DE, E, H, HL, L, PC, SP } from '../registers'
 import { carryFlag, halfCarryFlag, zeroFlag, zeroFlagBool } from './flags'
-import { int8 } from '../helpers'
+import { int8, uint8 } from '../helpers'
 
 export const Instructions = new Map<number, (context: InstructionContext) => void>([
   [0x00, () => { }],
   [0x01, (c) => { c.BC = readArgWord(c) }],
+  [0x02, (c) => { c.mmu.write(c.BC, c.A) }],
   [0x03, (c) => { c.BC++ }],
   [0x04, (c) => { inc(c, B) }],
   [0x05, (c) => { dec(c, B) }],
@@ -15,6 +16,7 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0x07, rlca],
   [0x08, (c) => { c.mmu.write_word(readArgWord(c), c.SP) }],
   [0x09, (c) => { addHLR16(c, BC) }],
+  [0x0A, (c) => { c.A = c.mmu.read(c.BC) }],
   [0x0B, (c) => { c.BC-- }],
   [0x0C, (c) => { inc(c, C) }],
   [0x0D, (c) => { dec(c, C) }],
@@ -42,6 +44,7 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0x24, (c) => { inc(c, H) }],
   [0x25, (c) => { dec(c, H) }],
   [0x26, (c) => { c.H = readArgByte(c) }],
+  [0x27, daa],
   [0x28, jr_z_n],
   [0x29, (c) => { addHLR16(c, HL) }],
   [0x2a, (c) => { c.A = c.mmu.read(c.HL++) }],
@@ -54,11 +57,13 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0x31, (c) => { c.SP = readArgWord(c) }],
   [0x32, (c) => { ldd(c, HL, A) }],
   [0x33, (c) => { c.SP++ }],
+  [0x34, (c) => { incHL(c, c.HL) }],
   [0x35, (c) => { decHL(c, c.HL) }],
   [0x36, (c) => { c.mmu.write(c.HL, readArgByte(c)) }],
   [0x37, scf],
   [0x38, jr_c_n],
   [0x39, (c) => { addHLR16(c, SP) }],
+  [0x3a, (c) => { c.A = c.mmu.read(c.HL--) }],
   [0x3B, (c) => { c.SP-- }],
   [0x3C, (c) => { inc(c, A) }],
   [0x3D, (c) => { dec(c, A) }],
@@ -133,6 +138,7 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0x83, (c) => { addA(c, c.E) }],
   [0x84, (c) => { addA(c, c.H) }],
   [0x85, (c) => { addA(c, c.L) }],
+  [0x86, (c) => { addA(c, c.mmu.read(c.HL)) }],
   [0x87, (c) => { addA(c, c.A) }],
   [0x88, (c) => { adc(c, c.B) }],
   [0x89, (c) => { adc(c, c.C) }],
@@ -140,6 +146,7 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0x8B, (c) => { adc(c, c.E) }],
   [0x8C, (c) => { adc(c, c.H) }],
   [0x8D, (c) => { adc(c, c.L) }],
+  [0x8E, (c) => { adc(c, c.mmu.read(c.HL)) }],
   [0x8F, (c) => { adc(c, c.A) }],
   [0x90, (c) => { sub(c, c.B) }],
   [0x91, (c) => { sub(c, c.C) }],
@@ -147,6 +154,7 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0x93, (c) => { sub(c, c.E) }],
   [0x94, (c) => { sub(c, c.H) }],
   [0x95, (c) => { sub(c, c.L) }],
+  [0x96, (c) => { sub(c, c.mmu.read(c.HL)) }],
   [0x97, (c) => { sub(c, c.A) }],
   [0x98, (c) => { sbc(c, c.B) }],
   [0x99, (c) => { sbc(c, c.C) }],
@@ -154,6 +162,7 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0x9B, (c) => { sbc(c, c.E) }],
   [0x9C, (c) => { sbc(c, c.H) }],
   [0x9D, (c) => { sbc(c, c.L) }],
+  [0x9E, (c) => { sbc(c, c.mmu.read(c.HL)) }],
   [0x9F, (c) => { sbc(c, c.A) }],
   [0xA0, (c) => { and(c, c.B) }],
   [0xA1, (c) => { and(c, c.C) }],
@@ -161,6 +170,7 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0xA3, (c) => { and(c, c.E) }],
   [0xA4, (c) => { and(c, c.H) }],
   [0xA5, (c) => { and(c, c.L) }],
+  [0xA6, (c) => { and(c, c.mmu.read(c.HL)) }],
   [0xA7, (c) => { and(c, c.A) }],
   [0xA8, (c) => { xor(c, c.B) }],
   [0xA9, (c) => { xor(c, c.C) }],
@@ -184,6 +194,7 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0xBB, (c) => { cp(c, c.E) }],
   [0xBC, (c) => { cp(c, c.H) }],
   [0xBD, (c) => { cp(c, c.L) }],
+  [0xBE, (c) => { cp(c, c.mmu.read(c.HL)) }],
   [0xBF, (c) => { cp(c, c.A) }],
   [0xC0, ret_nz],
   [0xC1, (c) => { c.BC = popWord(c) }],
@@ -287,6 +298,15 @@ function dec (c: InstructionContext, reg: string): void {
   c.regs.set(reg, v)
   zeroFlag(c, v)
   c.regs.set_flag(CpuFlags.Negative)
+}
+
+function incHL (c: InstructionContext, addr: number): void {
+  let v = c.mmu.read(addr)
+  halfCarryFlag(c, (v & 0x0f) === 0x0f)
+  v = (v + 1) & 0xff
+  c.mmu.write(addr, v)
+  zeroFlag(c, v)
+  c.regs.clear_flag(CpuFlags.Negative)
 }
 
 function decHL (c: InstructionContext, addr: number): void {
@@ -648,6 +668,36 @@ function rla (c: InstructionContext): void {
   c.A += carry
 
   c.regs.clear_flag(CpuFlags.Negative | CpuFlags.Zero | CpuFlags.HalfCarry)
+}
+
+function daa (c: InstructionContext): void {
+  let s = c.A
+  if (c.regs.check(CpuFlags.Negative)) {
+    if (c.regs.check(CpuFlags.HalfCarry)) {
+      s = (s - 0x06) & 0xff
+    }
+    if (c.regs.check(CpuFlags.Carry)) {
+      s = (s - 0x60)
+    }
+  } else {
+    if (c.regs.check(CpuFlags.HalfCarry) || (s & 0x0f) > 9) {
+      s += 0x06
+    }
+    if (c.regs.check(CpuFlags.Carry) || s > 0x9f) {
+      s += 0x60
+    }
+  }
+
+  s &= 0xffff
+
+  c.A = uint8(s)
+  c.regs.clear_flag(CpuFlags.HalfCarry)
+
+  zeroFlag(c, c.A)
+
+  if (s > 0x100) {
+    c.regs.set_flag(CpuFlags.Carry)
+  }
 }
 
 function rlca (c: InstructionContext): void {

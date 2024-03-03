@@ -1,14 +1,14 @@
 import { readFileSync } from 'node:fs'
 import { PlainCartridge } from './gb/cartridge'
 import { Cpu } from './gb/cpu'
-import { Registers } from './gb/registers'
+import { C, Registers } from './gb/registers'
 import { MemoryManagementUnit } from './gb/mmu'
 import { FileLogger } from './gb/logger'
 import { PixelProcessingUnit } from './gb/ppu'
 import { PngDisplay } from './gb/display/png_display'
 
 const logger = new FileLogger()
-const buff: Uint8Array = readFileSync('test-cartridges/cpu_instrs/individual/09-op r,r.gb')
+const buff: Uint8Array = readFileSync('test-cartridges/cpu_instrs/individual/11-op a,(hl).gb')
 const cart = new PlainCartridge(buff)
 const registers = new Registers()
 const mmu = new MemoryManagementUnit(cart)
@@ -21,6 +21,9 @@ const start = new Date().getTime()
 
 try {
   for (let index = 0; index < 1024 * 64 * 128; index++) {
+    // if (c.state.cycles === 12517986) {
+    //   console.log('break')
+    // }
     const cycles = c.step()
     ppu.step(cycles)
 
