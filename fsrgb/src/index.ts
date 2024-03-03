@@ -10,6 +10,7 @@ import { Timer } from './gb/timer'
 
 const logger = new FileLogger()
 const buff: Uint8Array = readFileSync('test-cartridges/cpu_instrs/individual/10-bit ops.gb')
+const buff: Uint8Array = readFileSync('test-cartridges/cpu_instrs/individual/01-special.gb')
 const cart = new PlainCartridge(buff)
 const registers = new Registers()
 const mmu = new MemoryManagementUnit(cart)

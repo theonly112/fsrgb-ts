@@ -697,7 +697,7 @@ function daa (c: InstructionContext): void {
 
   zeroFlag(c, c.A)
 
-  if (s > 0x100) {
+  if (s >= 0x100) {
     c.regs.set_flag(CpuFlags.Carry)
   }
 }
