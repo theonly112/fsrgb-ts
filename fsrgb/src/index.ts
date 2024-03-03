@@ -8,7 +8,7 @@ import { PixelProcessingUnit } from './gb/ppu'
 import { PngDisplay } from './gb/display/png_display'
 
 const logger = new FileLogger()
-const buff: Uint8Array = readFileSync('test-cartridges/cpu_instrs/individual/05-op rp.gb')
+const buff: Uint8Array = readFileSync('test-cartridges/cpu_instrs/individual/09-op r,r.gb')
 const cart = new PlainCartridge(buff)
 const registers = new Registers()
 const mmu = new MemoryManagementUnit(cart)
@@ -20,10 +20,7 @@ const c: Cpu = new Cpu(registers, mmu, logger)
 const start = new Date().getTime()
 
 try {
-  for (let index = 0; index < 1024 * 64 * 64; index++) {
-    if (c.state.PC === 0xC67E) {
-      // console.log('whats up')
-    }
+  for (let index = 0; index < 1024 * 64 * 128; index++) {
     const cycles = c.step()
     ppu.step(cycles)
 

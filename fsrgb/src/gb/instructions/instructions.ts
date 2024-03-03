@@ -9,19 +9,24 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0x00, () => { }],
   [0x01, (c) => { c.BC = readArgWord(c) }],
   [0x03, (c) => { c.BC++ }],
+  [0x04, (c) => { inc(c, B) }],
   [0x05, (c) => { dec(c, B) }],
   [0x06, (c) => { c.B = readArgByte(c) }],
+  [0x07, rlca],
   [0x08, (c) => { c.mmu.write_word(readArgWord(c), c.SP) }],
   [0x09, (c) => { addHLR16(c, BC) }],
   [0x0B, (c) => { c.BC-- }],
   [0x0C, (c) => { inc(c, C) }],
   [0x0D, (c) => { dec(c, C) }],
   [0x0E, (c) => { c.C = readArgByte(c) }],
+  [0x0F, rrca],
   [0x11, (c) => { c.DE = readArgWord(c) }],
   [0x12, (c) => { c.mmu.write(c.DE, c.A) }],
   [0x13, (c) => { c.DE++ }],
   [0x14, (c) => { inc(c, D) }],
+  [0x15, (c) => { dec(c, D) }],
   [0x16, (c) => { c.D = readArgByte(c) }],
+  [0x17, rla],
   [0x18, (c) => { jr_n(c) }],
   [0x19, (c) => { addHLR16(c, DE) }],
   [0x1a, (c) => { c.A = c.mmu.read(c.DE) }],
@@ -44,18 +49,21 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0x2c, (c) => { inc(c, L) }],
   [0x2D, (c) => { dec(c, L) }],
   [0x2E, (c) => { c.L = readArgByte(c) }],
+  [0x2F, cpl],
   [0x30, jr_nc_n],
   [0x31, (c) => { c.SP = readArgWord(c) }],
   [0x32, (c) => { ldd(c, HL, A) }],
   [0x33, (c) => { c.SP++ }],
   [0x35, (c) => { decHL(c, c.HL) }],
   [0x36, (c) => { c.mmu.write(c.HL, readArgByte(c)) }],
+  [0x37, scf],
   [0x38, jr_c_n],
   [0x39, (c) => { addHLR16(c, SP) }],
   [0x3B, (c) => { c.SP-- }],
   [0x3C, (c) => { inc(c, A) }],
   [0x3D, (c) => { dec(c, A) }],
   [0x3E, (c) => { c.A = readArgByte(c) }],
+  [0x3F, ccf],
   [0x40, (c) => { /* no op c.B = c.B */ }],
   [0x41, (c) => { c.B = c.C }],
   [0x42, (c) => { c.B = c.D }],
@@ -119,14 +127,64 @@ export const Instructions = new Map<number, (context: InstructionContext) => voi
   [0x7D, (c) => { c.A = c.L }],
   [0x7E, (c) => { c.A = c.mmu.read(c.HL) }],
   [0x7F, (c) => { /* no op c.A = c.A */ }],
+  [0x80, (c) => { addA(c, c.B) }],
+  [0x81, (c) => { addA(c, c.C) }],
+  [0x82, (c) => { addA(c, c.D) }],
+  [0x83, (c) => { addA(c, c.E) }],
+  [0x84, (c) => { addA(c, c.H) }],
+  [0x85, (c) => { addA(c, c.L) }],
+  [0x87, (c) => { addA(c, c.A) }],
+  [0x88, (c) => { adc(c, c.B) }],
+  [0x89, (c) => { adc(c, c.C) }],
+  [0x8A, (c) => { adc(c, c.D) }],
+  [0x8B, (c) => { adc(c, c.E) }],
+  [0x8C, (c) => { adc(c, c.H) }],
+  [0x8D, (c) => { adc(c, c.L) }],
+  [0x8F, (c) => { adc(c, c.A) }],
+  [0x90, (c) => { sub(c, c.B) }],
+  [0x91, (c) => { sub(c, c.C) }],
+  [0x92, (c) => { sub(c, c.D) }],
+  [0x93, (c) => { sub(c, c.E) }],
+  [0x94, (c) => { sub(c, c.H) }],
+  [0x95, (c) => { sub(c, c.L) }],
+  [0x97, (c) => { sub(c, c.A) }],
+  [0x98, (c) => { sbc(c, c.B) }],
+  [0x99, (c) => { sbc(c, c.C) }],
+  [0x9A, (c) => { sbc(c, c.D) }],
+  [0x9B, (c) => { sbc(c, c.E) }],
+  [0x9C, (c) => { sbc(c, c.H) }],
+  [0x9D, (c) => { sbc(c, c.L) }],
+  [0x9F, (c) => { sbc(c, c.A) }],
+  [0xA0, (c) => { and(c, c.B) }],
+  [0xA1, (c) => { and(c, c.C) }],
+  [0xA2, (c) => { and(c, c.D) }],
+  [0xA3, (c) => { and(c, c.E) }],
+  [0xA4, (c) => { and(c, c.H) }],
+  [0xA5, (c) => { and(c, c.L) }],
+  [0xA7, (c) => { and(c, c.A) }],
+  [0xA8, (c) => { xor(c, c.B) }],
   [0xA9, (c) => { xor(c, c.C) }],
+  [0xAA, (c) => { xor(c, c.D) }],
+  [0xAB, (c) => { xor(c, c.E) }],
+  [0xAC, (c) => { xor(c, c.H) }],
   [0xAD, (c) => { xor(c, c.L) }],
   [0xAE, (c) => { xor(c, c.mmu.read(c.HL)) }],
   [0xAF, (c) => { xor(c, c.regs.get(A)) }],
   [0xB0, (c) => { or(c, c.B) }],
   [0xB1, (c) => { or(c, c.C) }],
+  [0xB2, (c) => { or(c, c.D) }],
+  [0xB3, (c) => { or(c, c.E) }],
+  [0xB4, (c) => { or(c, c.H) }],
+  [0xB5, (c) => { or(c, c.L) }],
   [0xB6, (c) => { or(c, c.mmu.read(c.HL)) }],
   [0xB7, (c) => { or(c, c.A) }],
+  [0xB8, (c) => { cp(c, c.B) }],
+  [0xB9, (c) => { cp(c, c.C) }],
+  [0xBA, (c) => { cp(c, c.D) }],
+  [0xBB, (c) => { cp(c, c.E) }],
+  [0xBC, (c) => { cp(c, c.H) }],
+  [0xBD, (c) => { cp(c, c.L) }],
+  [0xBF, (c) => { cp(c, c.A) }],
   [0xC0, ret_nz],
   [0xC1, (c) => { c.BC = popWord(c) }],
   [0xC2, jp_nz_nn],
@@ -562,4 +620,54 @@ function ld_hl_sp_n (c: InstructionContext): void {
   halfCarryFlag(c, (c.SP & 0x0f) + (n & 0x0f) > 0x0f)
   c.regs.clear_flag(CpuFlags.Zero | CpuFlags.Negative)
   c.HL = result & 0xffff
+}
+
+function cpl (c: InstructionContext): void {
+  c.A = (~c.A & 0xff)
+  c.regs.set_flag(CpuFlags.Negative)
+  c.regs.set_flag(CpuFlags.HalfCarry)
+}
+
+function scf (c: InstructionContext): void {
+  c.regs.set_flag(CpuFlags.Carry)
+  c.regs.clear_flag(CpuFlags.Negative)
+  c.regs.clear_flag(CpuFlags.HalfCarry)
+}
+
+function ccf (c: InstructionContext): void {
+  carryFlag(c, !c.regs.check(CpuFlags.Carry))
+  c.regs.clear_flag(CpuFlags.Negative)
+  c.regs.clear_flag(CpuFlags.HalfCarry)
+}
+
+function rla (c: InstructionContext): void {
+  const carry = c.regs.check(CpuFlags.Carry) ? 1 : 0
+  carryFlag(c, (c.A & 0x80) > 0)
+
+  c.A = c.A << 1
+  c.A += carry
+
+  c.regs.clear_flag(CpuFlags.Negative | CpuFlags.Zero | CpuFlags.HalfCarry)
+}
+
+function rlca (c: InstructionContext): void {
+  const carry = (c.A & 0x80) >> 7
+  carryFlag(c, carry !== 0)
+
+  c.A = c.A << 1
+  c.A += carry
+
+  c.regs.clear_flag(CpuFlags.Negative | CpuFlags.Zero | CpuFlags.HalfCarry)
+}
+
+function rrca (c: InstructionContext): void {
+  const carry = (c.A & 1)
+  carryFlag(c, carry > 0)
+
+  c.A = c.A >> 1
+  if (carry > 0) {
+    c.A |= 0x80
+  }
+
+  c.regs.clear_flag(CpuFlags.Negative | CpuFlags.Zero | CpuFlags.HalfCarry)
 }

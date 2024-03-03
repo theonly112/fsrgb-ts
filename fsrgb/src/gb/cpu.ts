@@ -28,7 +28,13 @@ export class Cpu {
 
   step (): number {
     const cycles = this.state.cycles
-    this.logger.write(this.regs.to_string() + `Cycles: ${cycles} LY: ${toHex(this.mmu.read(0xFF44), 2)}`)
+    if (cycles > 9619990) {
+      let inst = this.mmu.read(this.state.PC)
+      if (inst === 0xCB) {
+        inst = (inst << 8) + this.mmu.read(this.state.PC + 1)
+      }
+      this.logger.write(this.regs.to_string() + `Cycles: ${cycles} LY: ${toHex(this.mmu.read(0xFF44), 2)} INST: ${toHex(inst, 4)}`)
+    }
     const pc = this.regs.get(PC)
     const num = this.mmu.read(pc)
     const inst = Instructions.get(num)
